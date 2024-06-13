@@ -1,0 +1,646 @@
+---
+title: "2023 Particulate Iron Comparison - Microwave Plasma Atomic Emission Spectrometer vs Atomic Absorption Spectrophotometer"
+author: "Sonya Havens"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output: 
+    pdf_document:
+      latex_engine: xelatex
+      fig_caption: yes
+header-includes:
+  - \usepackage{wrapfig}
+  - \usepackage{graphicx}
+  - \usepackage{subcaption}
+  - \usepackage[font=footnotesize]{caption}
+  - \captionsetup[figure]{font=footnotesize}
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load_packages, include = FALSE}
+library(tidyverse)
+library(janitor)
+library(here)
+library(ggridges)
+library(viridis)
+library(viridisLite)
+library(patchwork)
+library(ggrepel)
+library(lubridate)
+library(latexpdf)
+library(tinytex)
+library(ggpubr)
+library(cowplot)
+library(emmeans)
+library(broom)
+library(ggbreak)
+```
+
+```{r source_themes, include = FALSE}
+source(here("functions", "theme_SH_pubs.R"))
+```
+
+```{r count, include=FALSE}
+
+data <- read_csv(here("data", "2023_PartFe_UW_MPAES_comparison.csv")) %>% 
+  clean_names()
+
+total_sample_count <- length(unique(data$mp_partfe))
+  
+```
+
+```{r QAQC_stats, include=FALSE}
+
+qc_data <- read_csv(here("data", "2023_PartFe_UW_MPAES_QC.csv")) %>% 
+  clean_names()
+
+dup_data <- read_csv(here("data", "2023_PartFe_UW_MPAES_dups.csv")) %>% 
+  clean_names()
+
+
+# Detection limit stats
+uw_lod_mean <- qc_data %>% 
+  summarise(mean=mean(uw_lod, d=2, na.rm=TRUE)) %>% 
+  round(digits = 2)
+
+uw_lod_sd <- qc_data %>% 
+  summarise(stdev=sd(uw_lod, na.rm=TRUE)) %>% 
+  round(digits = 2)
+
+uw_lod_median <- qc_data %>% 
+  summarise(median=median(uw_lod, d=2, na.rm=TRUE)) %>% 
+  round(digits = 2)
+
+mp_lod_mean <- qc_data %>% 
+  summarise(mean=mean(mp_lod, digit=2, na.rm=TRUE)) %>% 
+  round(digits = 2)
+
+mp_lod_sd <- qc_data %>% 
+  summarise(stdev=sd(mp_lod, na.rm=TRUE)) %>% 
+  round(digits = 2)
+
+mp_lod_median <- qc_data %>% 
+  summarise(median=median(mp_lod, d=2, na.rm=TRUE)) %>% 
+  round(digits = 2)
+
+ratio_lod <- round(uw_lod_mean/mp_lod_mean, 1)
+
+# Dup stats
+
+uw_dup_mean <- dup_data %>% 
+  summarise(mean=mean(uw_rpd, na.rm=TRUE)) %>% 
+  round(digits = 2)
+
+uw_dup_sd <- dup_data %>% 
+  summarise(stdev=sd(uw_rpd, na.rm=TRUE)) %>% 
+  round(digits = 2)
+
+uw_dup_median <- dup_data %>% 
+  summarise(median=median(uw_rpd, d=2, na.rm=TRUE)) %>% 
+  round(digits = 2)
+
+mp_dup_mean <- dup_data %>% 
+  summarise(mean=mean(mp_rpd, na.rm=TRUE)) %>% 
+  round(digits = 2)
+
+mp_dup_sd <- dup_data %>% 
+  summarise(stdev=sd(mp_rpd, na.rm=TRUE)) %>% 
+  round(digits = 2)
+
+mp_dup_median <- dup_data %>% 
+  summarise(median=median(mp_rpd, d=2, na.rm=TRUE)) %>% 
+  round(digits = 2)
+
+dup_data_noblanks <- dup_data %>% 
+  filter(!site %in% c("Filter blank", "Method blank"))
+
+uw_dup_noblanks_mean <- dup_data_noblanks %>% 
+  summarise(mean=mean(uw_rpd, na.rm=TRUE)) %>% 
+  round(digits = 2)
+
+uw_dup_noblanks_sd <- dup_data_noblanks %>% 
+  summarise(stdev=sd(uw_rpd, na.rm=TRUE)) %>% 
+  round(digits = 2)
+
+uw_dup_noblanks_median <- dup_data_noblanks %>% 
+  summarise(median=median(uw_rpd, na.rm=TRUE)) %>% 
+  round(digits = 2)
+
+# Blank stats
+
+uw_fb_mean <- data %>% 
+  filter(site == "Filter blank") %>% 
+  summarise(mean=mean(uw_partfe, na.rm=TRUE)) %>% 
+  round(digits = 2)
+
+uw_fb_sd <- data %>% 
+  filter(site == "Filter blank") %>% 
+  summarise(stdev=sd(uw_partfe, na.rm=TRUE)) %>% 
+  round(digits = 2)
+
+uw_fb_median <- data %>% 
+  filter(site == "Filter blank") %>% 
+  summarise(median=median(uw_partfe, na.rm=TRUE)) %>% 
+  round(digits = 2)
+
+mp_fb_mean <- data %>% 
+  filter(site == "Filter blank") %>% 
+  summarise(mean=mean(mp_partfe, na.rm=TRUE)) %>% 
+  round(digits = 2)
+
+mp_fb_sd <- data %>% 
+  filter(site == "Filter blank") %>% 
+  summarise(stdev=sd(mp_partfe, na.rm=TRUE)) %>% 
+  round(digits = 2)
+
+mp_fb_median <- data %>% 
+  filter(site == "Filter blank") %>% 
+  summarise(median=median(mp_partfe, na.rm=TRUE)) %>% 
+  round(digits = 2)
+
+uw_mb_mean <- data %>% 
+  filter(site == "Method blank") %>% 
+  summarise(mean=mean(uw_partfe, na.rm=TRUE)) %>% 
+  round(digits = 2)
+
+uw_mb_sd <- data %>% 
+  filter(site == "Method blank") %>% 
+  summarise(stdev=sd(uw_partfe, na.rm=TRUE)) %>% 
+  round(digits = 2)
+
+uw_mb_median <- data %>% 
+  filter(site == "Method blank") %>% 
+  summarise(median=median(uw_partfe, na.rm=TRUE)) %>% 
+  round(digits = 2)
+
+mp_mb_mean <- data %>% 
+  filter(site == "Method blank") %>% 
+  summarise(mean=mean(mp_partfe, na.rm=TRUE)) %>% 
+  round(digits = 2)
+
+mp_mb_sd <- data %>% 
+  filter(site == "Method blank") %>% 
+  summarise(stdev=sd(mp_partfe, na.rm=TRUE)) %>% 
+  round(digits = 2)
+
+mp_mb_median <- data %>% 
+  filter(site == "Method blank") %>% 
+  summarise(median=median(mp_partfe, na.rm=TRUE)) %>% 
+  round(digits = 2)
+  
+uw_dup <- dup_data %>% 
+  filter(uw_rpd != "NA")
+
+uw_dup_count <- length(uw_dup$uw_rpd)
+
+uw_blank_dup <- uw_dup %>% 
+  filter(site %in% c("Filter blank", "Method blank"))
+
+uw_blank_dup_count <- length(uw_blank_dup$uw_rpd)
+
+uw_blank_dup_percent <- round(((uw_blank_dup_count/uw_dup_count) * 100), 0)
+
+mp_dup <- dup_data %>% 
+  filter(mp_rpd != "NA")
+
+mp_blank_dup <- mp_dup %>% 
+  filter(site %in% c("Filter blank", "Method blank"))
+
+```
+
+```{r lod_plot, echo=FALSE, warning=FALSE, message=FALSE}
+
+lod_long <- qc_data %>% 
+  rename(MPAES = mp_lod) %>% 
+  rename(UW_AAS = uw_lod) %>% 
+  pivot_longer(-anal_date, names_to="method", values_to="lod")
+
+lod_plot <- lod_long %>% 
+  
+  ggplot(aes(method, lod)) +
+  geom_boxplot() +
+  xlab("Method") +
+  ylab("Detection limit (µg/L)") +
+  theme_SH_pubs() +
+  theme(
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12)
+  )
+
+ggsave(here("rmarkdown", "lod_plot.pdf"), lod_plot)
+
+```
+
+```{r dup_plot, echo=FALSE, warning=FALSE, message=FALSE}
+
+dup_long <- dup_data %>% 
+  rename(MPAES = mp_rpd) %>% 
+  rename(UW_AAS = uw_rpd) %>% 
+  pivot_longer(cols = c(-analysis_date, -sample_id, -site), names_to = 'method', values_to = 'rpd')
+
+dup_plot <- dup_long %>% 
+  
+  ggplot(aes(method, rpd)) +
+  geom_boxplot() +
+# ggtitle("Duplicate Relative Percent Differences") +
+# theme(plot.title = element_text(size = 12, hjust = 0.5)) +
+# scale_y_break(c(15,250), scales = 0.1) + # can't seem to use the scale_y_break with wrapfigure (creates extra space above plot that seems to mess up wrapfigure) so setting y scale and losing 265 ug/L AAS outlier
+  ylim(0, 15) +
+  xlab("Method") +
+  ylab("Relative percent difference (%)") +
+  theme_SH_pubs() +
+  theme(
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12)
+  )
+
+dup_plot_noblanks <- dup_long %>% 
+  filter(!site %in% c("Filter blank", "Method blank")) %>% 
+  
+  ggplot(aes(method, rpd)) +
+  geom_boxplot() +
+# ggtitle("Duplicate Relative Percent Differences") +
+# theme(plot.title = element_text(size = 12, hjust = 0.5)) +
+  ylim(0, 10) +
+  xlab("Method") +
+  ylab("Relative percent difference (%)") +
+  theme_SH_pubs() +
+  theme(
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12)
+  )
+
+ggsave(here("rmarkdown", "dup_plot.pdf"), dup_plot)
+ggsave(here("rmarkdown", "dup_plot_noblanks.pdf"), dup_plot_noblanks)
+
+```
+
+```{r blank_plots, include=FALSE, warning=FALSE, message=FALSE}
+
+data_long <-  data %>% 
+  rename(MPAES = mp_partfe) %>% 
+  rename(UW_AAS = uw_partfe) %>% 
+  pivot_longer(cols=c(-sample_id, -site), names_to = 'method', values_to = 'result')
+
+blanks <- data %>% 
+  filter(site == c("Filter blank", "Method blank"))
+
+fit_blanks <- lm(mp_partfe ~ uw_partfe, data = blanks)
+
+summary(fit_blanks)
+
+confint(fit_blanks)
+
+tidy_fit_blanks <- tidy(fit_blanks, conf.int = TRUE)
+
+fit_blanks_conf <- tidy_fit_blanks %>% 
+  filter(term == 'uw_partfe')
+
+fit_blanks_conf_low <- fit_blanks_conf$conf.low %>% 
+  round(digits = 2)
+
+fit_blanks_conf_high <- fit_blanks_conf$conf.high %>% 
+  round(digits = 2)
+
+fit_blanks_rsquared <- summary(fit_blanks)$r.squared %>% 
+  round(digits = 2)
+
+fit_blanks_pval_df <- tidy_fit_blanks %>% 
+  filter(term == 'uw_partfe') %>% 
+  mutate(pval = case_when(p.value < 0.001 ~ "*p* < 0.001"))
+
+fit_blanks_pval <- fit_blanks_pval_df$pval
+
+fb_plot <- data_long %>% 
+  filter(site == "Filter blank") %>%
+
+  ggplot(aes(method, result)) +
+  geom_boxplot() +
+  ggtitle("Filter blanks") +
+  theme(plot.title = element_text(size = 12, hjust = 0.5)) +
+  xlab("Method") +
+  ylab("Particulate iron (µg/L)") +
+  theme_SH_pubs() +
+  theme(
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12)
+  )
+
+mp_plot <- data_long %>% 
+  filter(site == "Method blank") %>%
+
+  ggplot(aes(method, result)) +
+  geom_boxplot() +
+  ggtitle("Method Blanks") +
+  theme(plot.title = element_text(size = 12, hjust = 0.5)) +
+  xlab("Method") +
+  ylab("Particulate iron (µg/L)") +
+  theme_SH_pubs() +
+  theme(
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12)
+  )
+
+uw_v_mp_blanks <- data %>% 
+  filter(site == c("Filter blank", "Method blank")) %>% 
+      
+  ggplot(aes(uw_partfe, mp_partfe)) +
+  geom_point(shape = 16, size = 3) +
+  geom_smooth(method="lm", level = 0.95, linetype = "solid", color = "black") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dotted") +
+  stat_regline_equation(label.x= 0, label.y= 300 , aes(x = uw_partfe, y = mp_partfe)) +
+  stat_cor(label.x = 0, label.y = 280, aes(x = uw_partfe, y = mp_partfe)) +
+  ggtitle("Filter and Method Blanks") +
+  theme(plot.title = element_text(size = 12, hjust = 0.5)) +
+  xlab("University of Wisconsin AAS (µg/L)") +
+  ylab("Agilent MPAES (µg/L)") +
+  xlim(0, 300) +
+  ylim(0, 300) +
+  theme_SH_pubs() +
+  theme(
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12)
+  )
+
+ggsave(here("rmarkdown", "uw_v_mp_blanks.pdf"), uw_v_mp_blanks)
+ggsave(here("rmarkdown", "fb_plot.pdf"), fb_plot)
+ggsave(here("rmarkdown", "mp_plot.pdf"), mp_plot)
+
+```
+
+```{r blank_reruns, echo=FALSE, message=FALSE, warning=FALSE}
+
+reruns <- read_csv(here("data", "2023_PartFe_MPAES_reruns.csv")) %>% 
+  clean_names()
+
+reruns_long <- reruns %>% 
+  rename("original run" = run_1) %>% 
+  rename(rerun = run_2) %>% 
+  pivot_longer(cols=c(-sample_id, -site), names_to = 'method', values_to = 'result')
+
+reruns_boxplot <- reruns_long %>% 
+
+  ggplot(aes(method, result)) +
+  geom_boxplot() +
+# ggtitle("Reruns") +
+# theme(plot.title = element_text(size = 12, hjust = 0.5)) +
+  xlab("Run") +
+  ylab("Particulate iron (µg/L)") +
+  theme_SH_pubs() +
+  theme(
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12)
+  )
+
+reruns_lmplot <- reruns %>% 
+  
+  ggplot(aes(run_2, run_1)) +
+  geom_point(shape = 16, size = 3) +
+  geom_smooth(method="lm", level = 0.95, linetype = "solid", color = "black") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dotted") +
+  stat_regline_equation(label.x= 100, label.y= 220 , aes(x = run_1, y = run_2)) +
+  stat_cor(label.x = 100, label.y = 210, aes(x = run_1, y = run_2)) +
+  ggtitle("Filter and Method Blanks") +
+  theme(plot.title = element_text(size = 12, hjust = 0.5)) +
+  xlab("Original run (µg/L)") +
+  ylab("Rerun (µg/L)") +
+  xlim(100, 225) +
+  ylim(100, 225) +
+  theme_SH_pubs() +
+  theme(
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12)
+  )
+
+ggsave(here("rmarkdown", "reruns_boxplot.pdf"), reruns_boxplot)
+
+```
+
+```{r lmfigures, echo=FALSE, warning=FALSE, message=FALSE}
+
+uw_v_mp <- data %>% 
+  
+  ggplot(aes(x = uw_partfe, y = mp_partfe)) +
+  geom_point(shape = 16, size = 3) +
+  geom_smooth(method="lm", level = 0.95, linetype = "solid", color = "black") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dotted") +
+  stat_regline_equation(label.x= 0, label.y= 3900 , aes(x = uw_partfe, y = mp_partfe)) +
+  stat_cor(label.x = 0, label.y = 3600, aes(x = uw_partfe, y = mp_partfe)) +
+  ggtitle("Particulate Iron") +
+  theme(plot.title = element_text(size = 12, hjust = 0.5)) +
+  xlab("AAS [Particulate Fe] (µg/L)") +
+  ylab("MPAES [Particulate Fe] (µg/L)") +
+  xlim(0, 4000) +
+  ylim(0, 4000) +
+  theme_SH_pubs() +
+  theme(
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12)
+  )
+
+ggsave(here("rmarkdown", "uw_v_mp.pdf"), uw_v_mp)
+
+```
+
+```{r lm_statistics, include=FALSE}
+
+fit_partfe <- lm(mp_partfe ~ uw_partfe, data = data)
+
+summary(fit_partfe)
+
+confint(fit_partfe)
+
+tidy_fit_partfe <- tidy(fit_partfe, conf.int = TRUE)
+
+fit_conf <- tidy_fit_partfe %>% 
+  filter(term == 'uw_partfe')
+
+fit_conf_low <- fit_conf$conf.low %>% 
+  round(digits = 2)
+
+fit_conf_high <- fit_conf$conf.high %>% 
+  round(digits = 2)
+
+fit_rsquared <- summary(fit_partfe)$r.squared %>% 
+  round(digits = 2)
+
+fit_pval_df <- tidy_fit_partfe %>% 
+  filter(term == 'uw_partfe') %>% 
+  mutate(pval = case_when(p.value < 0.001 ~ "*p* < 0.001"))
+
+fit_pval <- fit_pval_df$pval
+
+```
+
+```{r lmfigures_below775, echo=FALSE, warning=FALSE, message=FALSE}
+
+uw_v_mp_below775 <- data %>% 
+  filter(uw_partfe < 775) %>% 
+  
+  ggplot(aes(x = uw_partfe, y = mp_partfe)) +
+  geom_point(shape = 16, size = 3) +
+  geom_smooth(method="lm", level = 0.95, linetype = "solid", color = "black") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dotted") +
+  stat_regline_equation(label.x= 0, label.y= 770 , aes(x = uw_partfe, y = mp_partfe)) +
+  stat_cor(label.x = 0, label.y = 725, aes(x = uw_partfe, y = mp_partfe)) +
+  ggtitle("Particulate Iron Less than 775 µg/L") +
+  theme(plot.title = element_text(size = 12, hjust = 0.5)) +
+  xlab("AAS [Particulate Fe] (µg/L)") +
+  ylab("MPAES [Particulate Fe] (µg/L)") +
+  xlim(0, 775) +
+  ylim(0, 775) +
+  theme_SH_pubs() +
+  theme(
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12)
+  )
+
+ggsave(here("rmarkdown", "uw_v_mp_below775.pdf"), uw_v_mp_below775)
+
+```
+
+```{r statistics_below400, include=FALSE}
+
+partfe_below775 <- data %>% 
+  filter(uw_partfe < 775) 
+
+fit_partfe_below775 <- lm(mp_partfe ~ uw_partfe, data = partfe_below775)
+
+summary(fit_partfe_below775)
+
+confint(fit_partfe_below775)
+
+tidy_fit_partfe_below775 <- tidy(fit_partfe_below775, conf.int = TRUE)
+
+fit_conf_below775 <- tidy_fit_partfe_below775 %>% 
+  filter(term == 'uw_partfe')
+
+fit_conf_low_below775 <- fit_conf_below775$conf.low %>% 
+  round(digits = 2)
+
+fit_conf_high_below775 <- fit_conf_below775$conf.high %>% 
+  round(digits = 2)
+
+fit_rsquared_below775 <- summary(fit_partfe_below775)$r.squared %>% 
+  round(digits = 2)
+
+fit_pval_df_below775 <- tidy_fit_partfe %>% 
+  filter(term == 'uw_partfe') %>% 
+  mutate(pval = case_when(p.value < 0.001 ~ "*p* < 0.001"))
+
+fit_pval_below775 <- fit_pval_df$pval
+
+```
+
+## Agilent Microwave Plasma Atomic Emission Spectrometer
+
+The Agilent Microwave Plasma Atomic Emission Spectrometer (MPAES) was purchased from Agilent Canada, December 2022 and included the following parts:
+
+* Agilent 4210 MP-AES elemental analyzer with a nitrogen plasma emission source. 
+* Nitrogen generator
+* SPS 4 autosampler
+* AVS 4 integrated switching valve
+
+The MPAES was received March, 2023, installed in June 2023 by Yang Liu, and used to measure particulate iron in samples collected from 2019 to the end of 2022 (*n* = `r total_sample_count`) from 9 August, 2023 to 7 September, 2023 that were also measured by Emily Van at the University of Winnipeg (UW) using an Atomic Absorption Spectrophotometer (AAS) in May 2023. 
+
+Filters with retained particulate matter are placed in 20-mL HDPE acid washed vials and digested with 2 mL of trace metal grade nitric acid. After a 48 hour digestion period the digested sample is diluted to 20 mL with ultrapure water. These digested samples were then analyzed on the AAS at UW and on the MPAES at IISD-ELA. 
+
+
+### Detection limits
+
+\begin{wrapfigure}[11]{r}{0.4\textwidth}
+  \vspace{-\baselineskip}
+  \includegraphics[width=0.4\textwidth]{lod_plot.pdf}
+  \caption{Limits of detection of the Atomic Absorption Spectrophotometer and the Microwave Plasma Atomic Emission Spectrometer}
+\end{wrapfigure}
+
+The detection limit (*C~dl~*) is calculated for each run using equations 1 through 3:
+
+Equation 1.	$C_{dl} = (y_d-b)/m$
+
+where *b* is the y-intercept, *m* is the slope, and *y~d~* is the signal detection limit, which is calculated using equation 2.
+
+Equation 2. $y_d = 3s_y+b$
+
+where *s~y~* is the residuals between the measured signal for each standard concentration and the calibration curve predicted response for each standard concentration and is calculated using equation 3.
+
+Equation 3.	$s_y = √((∑d_i^2 )/(n-2))$
+
+where *n* is the number of standards in the calibration curve, and *d~i~* is the difference between the measured signal for each standard concentration and the calibration curve predicted response for each standard concentration.
+
+The average detection limit over all of the analytical runs was `r ratio_lod` times lower on the MPAES (`r mp_lod_mean` ± `r mp_lod_sd` µg/L, median = `r mp_lod_median` µg/L) than on the AAS (`r uw_lod_mean` ± `r uw_lod_sd` µg/L, median = `r uw_lod_median` µg/L). 
+
+
+### Duplicates
+\begin{wrapfigure}[26]{r}{0.4\textwidth}
+  \vspace{-\baselineskip} 
+  \includegraphics[width=0.4\textwidth]{dup_plot.pdf}
+  \caption{Relative percent differences of duplicates analysed on the AAS and on the MPAES}
+  \smallskip\par
+  \includegraphics[width=0.4\textwidth]{dup_plot_noblanks.pdf}
+  \caption{Relative percent differences of duplicates analysed on the AAS and on the MPAES with filter blanks and method blanks removed}
+\end{wrapfigure}
+Sample duplicates are conducted every 15 to 20 samples. The average relative percent difference (RPD) of duplicated samples, calculated using equation 4, was `r mp_dup_mean` ± `r mp_dup_sd`% (median = `r mp_dup_median`%) and `r uw_dup_mean` ± `r uw_dup_sd`% (median = `r uw_dup_median`%) for samples analysed on the MPAES and on the AAS, respectively. The elevated average RPD of duplicates analysed on the AAS was due to the fact that `r uw_blank_dup_count` out of `r uw_dup_count` (`r uw_blank_dup_percent`%) of duplicate samples were filter blanks or method blanks. None of the duplicate samples ran on the MPAES were filter blanks or method blanks. RPD calculations are applicable when the concentrations of the duplicated samples are at least five times the detection limit. The average concentration of filter blanks (`r uw_fb_mean` ± `r uw_fb_sd` µg/L) and method blanks (`r uw_mb_mean` ± `r uw_mb_sd` µg/L) analysed on the AAS were lower than the AAS detection limit (`r uw_lod_mean` ± `r uw_lod_sd` µg/L), and therefore are not applicable for RPD calculations. When these filter blanks and method blanks were removed, the average and median RPD's of duplicates analysed on the AAS were `r uw_dup_noblanks_mean` ± `r uw_dup_noblanks_sd`% and `r uw_dup_noblanks_median`%, respectively.
+
+Equation 4. $RPD = ((C_1-C_2)/((C_1+C_2)/2)) x 100$
+
+where *C~1~* and *C~2~* are the concentrations of the two replicates. 
+
+
+### Blanks
+
+Filter blanks, consisting of a GF/C filter, and method blanks, consisting of a GF/C filter with 100 mL of ultrapure water (Milli-Q type 1 water) filtered through it, were collected each time particulate iron samples were filtered.  
+
+While the filter blank and method blank results obtained on the AAS and the MPAES were correlated (R^2^ = `r fit_blanks_rsquared`, `r fit_blanks_pval`), the MPAES results were consistently biased high (fig 4). 
+
+\begin{figure}[h]
+  \begin{subfigure}{0.33\textwidth}
+  \includegraphics[]{uw_v_mp_blanks.pdf}
+  \end{subfigure}%
+  \begin{subfigure}{0.33\textwidth}
+  \includegraphics[]{fb_plot.pdf}
+  \end{subfigure}%
+  \begin{subfigure}{0.33\textwidth}
+  \includegraphics[]{mp_plot.pdf}
+  \end{subfigure}
+\caption{Filter blanks and method blanks analysed on the AAS and MPAES}
+\end{figure}
+
+The blanks were reran to assess whether the elevated concentrations of particulate iron in blanks analysed with MPAES were due to increased storage time. 
+
+\begin{figure}[htb]
+\centering
+  \includegraphics[width=7cm]{reruns_boxplot.pdf}
+  \caption{Particulate iron concentrations of filter blanks and method blanks in original run and rerun}
+\end{figure}
+
+The rerun results were higher than those obtained in the original run, indicating that increasing the storage time of digested samples may lead to elevated particulate iron concentrations. It is unclear as to why this is the case. It is possible that iron could be leaching from the plastic, but the vials were acid washed to remove iron from the plastic, prior to use. 
+
+### Comparison with UW AAS results
+
+Particulate iron concentrations analysed on the AAS and MPAES were significantly correlated (R^2^ = `r fit_rsquared`, `r fit_pval`) and the 95% confidence interval for the slope of the AAS versus MPAES linear model for particulate iron was between `r fit_conf_low` and `r fit_conf_high`. This bias (slope > 1) was likely due to the fact that samples out of range of the standard curve were not diluted and rerun at the UW. 
+
+When samples that required dilution (>775 µg/L) were removed from the comparison, the particulate iron concentrations analysed on the AAS and the MPAES were still significantly correlated (R^2^ = `r fit_rsquared_below775`, `r fit_pval_below775`) and the 95% confidence interval for the slope of the AAS versus MPAES linear model was between `r fit_conf_low_below775` and `r fit_conf_high_below775`. 
+
+\begin{figure}[h]
+\begin{subfigure}{0.48\textwidth}
+\includegraphics[]{uw_v_mp.pdf}
+\end{subfigure}%
+\begin{subfigure}{0.48\textwidth}
+\includegraphics[]{uw_v_mp_below775.pdf}
+\end{subfigure}
+\caption{Comparison of particulate iron concentrations of samples analysed on the AAS and on the MPAES}
+\end{figure}
+
+### Conclusions 
+
+The MPAES performed well for the analysis of particulate iron, with lower detection limits than the AAS and excellent precision. The MPAES and AAS particulate iron results were highly correlated with a slope of 1.0 falling within the 95% confidence interval, indicating that the migration from AAS to MPAES will not induce a step change in the long-term data. Long-term (>2 months) storage of digested samples could lead to elevated concentrations in samples, as witnessed by the reruns of filter blanks and method blanks, though the cause is unknown. To address the potential affect of long-term storage of digested samples on particulate iron concentrations, a storage holding time limit of 14 days will be applied to digested samples. 
+
+
+\vspace{12pt}
+
+```{r timestamp, echo=FALSE}
+str_c("This report was created on", Sys.Date(), sep = " ")
+```
